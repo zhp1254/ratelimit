@@ -7,31 +7,36 @@ import (
 
 // RateLimiter 限速器
 type RateLimiter struct {
-	rate      uint64
-	allowance uint64
-	max       uint64
-	unit      uint64
+	rate      uint64  //单位时间可用数量
+	allowance uint64  //当前可用数量 剩余的
+	max       uint64  //最大数量
+	unit      uint64  //限制最小时间单位 默认 1秒
 	lastCheck uint64
 }
 
 // New 创建RateLimiter实例
-func New(rate int, per time.Duration) *RateLimiter {
+func NewLimiter(capacity uint, per time.Duration) *RateLimiter {
 	nano := uint64(per)
 	if nano < 1 {
 		nano = uint64(time.Second)
 	}
-	if rate < 1 {
-		rate = 1
+	if capacity < 1 {
+		capacity = 1
 	}
 
 	return &RateLimiter{
-		rate:      uint64(rate),
-		allowance: uint64(rate) * nano,
-		max:       uint64(rate) * nano,
+		rate:      uint64(capacity),
+		allowance: uint64(capacity) * nano,
+		max:       uint64(capacity) * nano,
 		unit:      nano,
 
 		lastCheck: unixNano(),
 	}
+}
+
+//alias Limit()
+func (rl *RateLimiter) Allow() bool {
+	return !rl.Limit()
 }
 
 // Limit 判断是否超过限制

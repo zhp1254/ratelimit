@@ -5,32 +5,32 @@ import (
 	"time"
 )
 
-type bucket struct {
-	capacity  uint
-	remaining uint
+type LeakyLimiter struct {
+	capacity  uint     //容量
+	remaining uint     //剩余
 	reset     time.Time
-	rate      time.Duration
+	rate      time.Duration //限制时间
 	mutex     sync.Mutex
 }
 
 // Capacity return
-func (b *bucket) Capacity() uint {
+func (b *LeakyLimiter) Capacity() uint {
 	return b.capacity
 }
 
-// Remaining space in the bucket.
-func (b *bucket) Remaining() uint {
+// Remaining space in the LeakyLimiter.
+func (b *LeakyLimiter) Remaining() uint {
 	return b.remaining
 }
 
-// Reset returns when the bucket will be drained.
-func (b *bucket) Reset() time.Time {
+// Reset returns when the LeakyLimiter will be drained.
+func (b *LeakyLimiter) Reset() time.Time {
 	b.remaining = b.capacity
 	return b.reset
 }
 
-// Add to the bucket.
-func (b *bucket) Add(amount uint) (BucketState, error) {
+// Add to the LeakyLimiter.
+func (b *LeakyLimiter) Add(amount uint) (BucketState, error) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	if time.Now().After(b.reset) {
@@ -44,30 +44,24 @@ func (b *bucket) Add(amount uint) (BucketState, error) {
 	return BucketState{Capacity: b.capacity, Remaining: b.remaining, Reset: b.reset}, nil
 }
 
-// Storage is a non thread-safe in-memory leaky bucket factory.
-type Storage struct {
-	buckets map[string]*bucket
+//alias Add(1) 占用一个token
+func (b *LeakyLimiter) Allow() bool{
+	_, err := b.Add(1)
+	return err == nil
 }
 
-// New initializes the in-memory bucket store.
-func New() *Storage {
-	return &Storage{
-		buckets: make(map[string]*bucket),
-	}
-}
 
-// Create a bucket.
-func (s *Storage) Create(name string, capacity uint, rate time.Duration) (BucketI, error) {
-	b, ok := s.buckets[name]
-	if ok {
-		return b, nil
-	}
-	b = &bucket{
+/**
+ * remaining 初始剩余量
+ * capacity  问题
+ * rate      限制时间
+ */
+func NewLimiter(capacity uint, per time.Duration) *LeakyLimiter {
+	return &LeakyLimiter{
 		capacity:  capacity,
 		remaining: capacity,
-		reset:     time.Now().Add(rate),
-		rate:      rate,
+		reset:     time.Now().Add(per),
+		rate:      per,
 	}
-	s.buckets[name] = b
-	return b, nil
 }
+
